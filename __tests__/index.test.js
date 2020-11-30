@@ -24,6 +24,6 @@ test('index', async () => {
     .get('/courses')
     .reply(200, htmlResult);
 
-  const result = await pageLoader('https://hexlet.io', dirPath);
+  const result = await pageLoader('https://hexlet.io/courses', dirPath);
   expect(result).toEqual(htmlResult);
 });
