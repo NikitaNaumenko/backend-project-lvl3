@@ -4,6 +4,9 @@
   "description": "[![Actions Status](https://github.com/NikitaNaumenko/backend-project-lvl3/workflows/hexlet-check/badge.svg)](https://github.com/NikitaNaumenko/backend-project-lvl3/actions)",
   "main": "index.js",
   "type": "module",
+  "bin": {
+    "page-loader": "bin/index.js"
+  },
   "scripts": {
     "test": "npx -n --experimental-vm-modules jest"
   },
@@ -30,6 +33,7 @@
     "nock": "^13.0.5"
   },
   "dependencies": {
-    "axios": "^0.21.0"
+    "axios": "^0.21.0",
+    "commander": "^6.2.0"
   }
 }
