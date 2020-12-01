@@ -8,9 +8,9 @@ program
   .arguments('<url>')
   .action(async (url, cmdObj) => {
     try {
-      await pageLoader(url, cmdObj.dir);
-    } catch {
-      console.log('Error');
+      await pageLoader(url, cmdObj.output);
+    } catch (e) {
+      console.log(e);
       process.exitCode = 1;
     }
   })
