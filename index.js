@@ -8,14 +8,32 @@ const generateSlug = (pageUrl) => {
   return [...url.host.split('.'), ..._.compact(url.pathname.split('/'))].join('-');
 };
 
-const download = (url, filepath) => (
-  axios.get(url).then((response) => response.data)
-    .then((data) => fs.writeFile(filepath, data))
-    .then(() => fs.readFile(filepath, 'utf-8'))
-);
+const download = (urlString) => axios.get(urlString, { responseType: 'arraybuffer' })
+  .then(({ data }) => data.toString())
+  .catch(({ message }) => {
+    throw new Error(`Error while downloading page "${urlString}"\nReason - "${message}"`);
+  });
+
+// const download = (url, filepath) => (
+//   axios.get(url, { responseType: 'arraybuffer' }).then((response) => response.data)
+//     .then((data) => fs.writeFile(filepath, data))
+//     .then(() => fs.readFile(filepath, 'utf-8'))
+// );
 
 export default (url, outputDir) => {
-  const fileName = generateSlug(url);
-  const filepath = path.join(outputDir, `${fileName}.html`);
-  return download(url, filepath);
+  console.log(`Passed url: ${url}`);
+  console.log(`Passed outputDir: ${outputDir}`);
+
+  const slug = generateSlug(url);
+  const pageFile = `${slug}.html`;
+  const pageFilePath = path.resolve(outputDir, pageFile);
+  console.log(`Page file ${pageFile} is located: ${pageFilePath}`);
+
+  const assetsDir = `${slug}_files`;
+  const assetsDirPath = path.resolve(outputDir, assetsDir);
+  console.log(`Assets dir is ${assetsDir} is located: ${assetsDirPath}`);
+
+  return download(url)
+    .then((data) => fs.writeFile(pageFilePath, data))
+    .then(() => fs.readFile(pageFilePath, 'utf-8'));
 };
