@@ -3,12 +3,19 @@ import path from 'path';
 import _ from 'lodash';
 import { promises as fs } from 'fs';
 
-export default (link, outputDir) => {
-  const pageUrl = new URL(link);
-  const fileName = [...pageUrl.host.split('.'), ..._.compact(pageUrl.pathname.split('/'))].join('-');
-  const filepath = path.join(outputDir, `${fileName}.html`);
-  const result = axios.get(link).then((response) => response.data)
+const generateSlug = (pageUrl) => {
+  const url = new URL(pageUrl);
+  return [...url.host.split('.'), ..._.compact(url.pathname.split('/'))].join('-');
+};
+
+const download = (url, filepath) => (
+  axios.get(url).then((response) => response.data)
     .then((data) => fs.writeFile(filepath, data))
-    .then(() => fs.readFile(filepath, 'utf-8'));
-  return result;
+    .then(() => fs.readFile(filepath, 'utf-8'))
+);
+
+export default (url, outputDir) => {
+  const fileName = generateSlug(url);
+  const filepath = path.join(outputDir, `${fileName}.html`);
+  return download(url, filepath);
 };
