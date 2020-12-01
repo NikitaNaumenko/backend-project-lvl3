@@ -14,12 +14,6 @@ const download = (urlString) => axios.get(urlString, { responseType: 'arraybuffe
     throw new Error(`Error while downloading page "${urlString}"\nReason - "${message}"`);
   });
 
-// const download = (url, filepath) => (
-//   axios.get(url, { responseType: 'arraybuffer' }).then((response) => response.data)
-//     .then((data) => fs.writeFile(filepath, data))
-//     .then(() => fs.readFile(filepath, 'utf-8'))
-// );
-
 export default (url, outputDir) => {
   console.log(`Passed url: ${url}`);
   console.log(`Passed outputDir: ${outputDir}`);
