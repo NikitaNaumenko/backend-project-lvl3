@@ -17,8 +17,14 @@ const download = (urlString) => axios.get(urlString, { responseType: 'arraybuffe
 
 const buildAssetUrl = (assetPath, origin) => new URL(assetPath, origin);
 
+const assetLinkMap = {
+  link: 'href',
+  img: 'src',
+  script: 'src',
+};
+
 const prepareAssetsInfo = (html, assetsPath, origin) => {
-  const links = $('img', html).toArray().map((elem) => $(elem).attr('src'));
+  const links = $('link,img,script', html).toArray().map((elem) => $(elem).attr('src'));
 
   return links.map((link) => ({
     url: buildAssetUrl(link, origin),
