@@ -7,7 +7,7 @@ import { promises as fs } from 'fs';
 
 const log = debug('page-loader');
 
-const generateSlug = (url) => [...url.host.split('.'), ..._.compact(url.pathname.split('/'))].join('-');
+const generateSlug = ({ host, pathname }) => _.trim(`${host}${pathname}`, '/').replace(/[/.]/g, '-');
 
 const download = (urlString) => axios.get(urlString, { responseType: 'arraybuffer' })
   .then(({ data }) => data.toString())
@@ -15,29 +15,44 @@ const download = (urlString) => axios.get(urlString, { responseType: 'arraybuffe
     throw new Error(`Error while downloading page "${urlString}"\nReason - "${message}"`);
   });
 
-const buildAssetUrl = (assetPath, origin) => new URL(assetPath, origin);
-
 const assetLinkMap = {
   link: 'href',
   img: 'src',
   script: 'src',
 };
 
-const prepareAssetsInfo = (html, assetsPath, origin) => {
-  const links = $('link,img,script', html).toArray().map((elem) => $(elem).attr('src'));
-
-  return links.map((link) => ({
-    url: buildAssetUrl(link, origin),
-    filepath: path.join(assetsPath, _.trim(link, '/').replace(/\//g, '-')),
-    key: link,
-  }));
+const getTagInfo = (tag) => {
+  const tagName = tag.name;
+  const attrName = assetLinkMap[tagName];
+  const attrValue = tag.attribs[attrName];
+  return { tagName, attrName, attrValue };
 };
+
+export const urlToFilename = (url, defaultExt = '.html') => {
+  const filename = _.trim(url.pathname, '/').replace(/\//g, '-');
+  const { ext } = path.parse(filename);
+  const name = _.first(filename.split('.'));
+  const base = generateSlug(new URL(url.origin))
+  const format = ext || defaultExt;
+
+  return `${base}-${name}${format}`;
+};
+
+const prepareAssetsInfo = (html, baseUrl, assetsPath) => $('link,img,script', html)
+  .toArray()
+  .map(getTagInfo)
+  .filter(({ attrValue }) => attrValue)
+  .map((info) => ({ ...info, url: new URL(info.attrValue, baseUrl.origin) }))
+  .filter(({ url }) => url.host === baseUrl.host)
+  .map((info) => ({ ...info, filepath: path.join(assetsPath, urlToFilename(info.url)) }));
 
 const prepareAssets = (initialHtml, assetsDirPath, origin) => {
   const assetsInfo = prepareAssetsInfo(initialHtml, assetsDirPath, origin);
-  const updatedHtml = assetsInfo.reduce((html, elem) => {
+  const updatedHtml = assetsInfo.reduce((html, {
+    tagName, attrName, attrValue, filepath,
+  }) => {
     const $$ = $.load(html, { decodeEntities: false });
-    $$(`img[src='${elem.key}']`).attr('src', elem.filepath);
+    $$(`${tagName}[${attrName}='${attrValue}']`).attr(attrName, filepath);
     return $$.html();
   }, initialHtml);
   return { assetsInfo, updatedHtml };
@@ -65,11 +80,11 @@ export default (url, outputDir) => {
     })
     .then((data) => {
       log('Process assets');
-      const { assetsInfo, updatedHtml } = prepareAssets(data, assetsDir, pageUrl.origin);
+      const { assetsInfo, updatedHtml } = prepareAssets(data, pageUrl, assetsDir);
       assetsInfo.map(({ filepath, url: assetUrl }) => {
         log(`Download: ${assetUrl} into ${filepath}`);
 
-        return download(assetUrl.toString()).then((content) => fs.writeFile(path.resolve(assetsDirPath, filepath), Buffer.from(content, 'base64')));
+        return download(assetUrl.toString()).then((content) => fs.writeFile(path.resolve(outputDir, filepath), content, { encoding: 'utf-8' }));
       });
 
       return fs.writeFile(pageFilePath, updatedHtml);

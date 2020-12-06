@@ -1,7 +1,7 @@
 import nock from 'nock';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { promises as fs } from 'fs';
+import { promises as fs, constants as fsConstants } from 'fs';
 import os from 'os';
 import pageLoader from '../index.js';
 
@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 /* eslint-enable no-underscore-dangle */
 
 const resolvePath = (...paths) => path.join(__dirname, '..', '__fixtures__', ...paths);
-const fileExists = async (file) => fs.promises.access(file, fs.constants.F_OK)
+const fileExists = async (file) => fs.access(file, fsConstants.F_OK)
   .then(() => true)
   .catch(() => false);
 
@@ -19,9 +19,8 @@ const baseUrl = 'https://ru.hexlet.io';
 const basePath = '/courses';
 const pageUrl = new URL(basePath, baseUrl);
 const expectedDirPath = 'ru-hexlet-io-courses_files';
-const pageFilename = resolvePath('ru-hexlet-io-courses');
 let dirPath;
-let pageContent;
+let expectedPageContnent = '';
 
 let assets = [
   {
@@ -36,8 +35,8 @@ let assets = [
   },
   {
     format: 'js',
-    url: '/assets/packs/js/runtime.js',
-    filepath: path.join(expectedDirPath, 'ru-hexlet-io-assets-packs-js-runtime.js'),
+    url: '/packs/js/runtime.js',
+    filepath: path.join(expectedDirPath, 'ru-hexlet-io-packs-js-runtime.js'),
   },
   {
     format: 'html',
@@ -45,33 +44,38 @@ let assets = [
     filepath: path.join(expectedDirPath, 'ru-hexlet-io-courses.html'),
   },
 ];
+
 const formats = assets.map(({ format }) => format);
-nock.disableNetConnect();
 const scope = nock(baseUrl).persist();
 
-beforeEach(async () => {
+nock.disableNetConnect();
+
+beforeAll(async () => {
   dirPath = await fs.mkdtemp(path.join(os.tmpdir(), 'page-loader-'));
 
-  pageContent = await fs.readFile(resolvePath('index.html'));
-  const promisesAssets = assets.map((asset) => fs.readFile(resolvePath('expected', asset.filepath)
-    .then((data) => ({ ...asset, data }))));
+  const pageContent = await fs.readFile(resolvePath('index.html'));
+
+  expectedPageContnent = await fs.readFile(resolvePath('expected', 'ru-hexlet-io-courses.html'), 'utf-8');
+  const promisesAssets = assets.map((asset) => fs.readFile(resolvePath('expected', asset.filepath), 'utf-8')
+    .then((data) => ({ ...asset, data })));
   assets = await Promise.all(promisesAssets);
+
   scope.get(basePath).reply(200, pageContent);
-  assets.forEach(({ url, data }) => nock.get(url).reply(200, data));
+  assets.forEach(({ url, data }) => scope.get(url).reply(200, data));
 });
 
 describe('positive cases', () => {
   test('load page', async () => {
-    const fileAlreadyExist = await fileExists(path.join(dirPath, pageFilename));
+    const fileAlreadyExist = await fileExists(path.join(dirPath, 'ru-hexlet-io-courses.html'));
     expect(fileAlreadyExist).toBe(false);
 
     await pageLoader(pageUrl.toString(), dirPath);
 
-    const fileWasCreated = await fileExists(path.join(dirPath, pageFilename));
+    const fileWasCreated = await fileExists(path.join(dirPath, 'ru-hexlet-io-courses.html'));
     expect(fileWasCreated).toBe(true);
 
-    const actualContent = await fs.readFile(dirPath, pageFilename);
-    expect(actualContent).toBe(pageContent.trim());
+    const actualContent = await fs.readFile(path.join(dirPath, 'ru-hexlet-io-courses.html'), 'utf-8');
+    expect(actualContent).toBe(expectedPageContnent);
   });
 
   test.each(formats)('check .%s-resource', async (format) => {
@@ -80,7 +84,7 @@ describe('positive cases', () => {
     const fileWasCreated = await fileExists(path.join(dirPath, filepath));
     expect(fileWasCreated).toBe(true);
 
-    const actualContent = await fs.readFile(dirPath, filepath);
+    const actualContent = await fs.readFile(path.join(dirPath, filepath), 'utf-8');
     expect(actualContent).toBe(data);
   });
 });
