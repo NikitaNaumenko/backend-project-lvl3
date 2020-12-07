@@ -32,7 +32,7 @@ export const urlToFilename = (url, defaultExt = '.html') => {
   const filename = _.trim(url.pathname, '/').replace(/\//g, '-');
   const { ext } = path.parse(filename);
   const name = _.first(filename.split('.'));
-  const base = generateSlug(new URL(url.origin))
+  const base = generateSlug(new URL(url.origin));
   const format = ext || defaultExt;
 
   return `${base}-${name}${format}`;
