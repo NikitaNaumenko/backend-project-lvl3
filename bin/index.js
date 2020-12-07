@@ -8,7 +8,7 @@ program
   .arguments('<url>')
   .action(async (url, cmdObj) => {
     try {
-      await pageLoader(url, cmdObj.output);
+      await pageLoader(url, cmdObj.output, 'default');
     } catch (e) {
       console.log(e);
       process.exitCode = 1;

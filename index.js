@@ -62,7 +62,7 @@ const prepareAssets = (initialHtml, assetsDirPath, origin) => {
 
 const createDir = (dirpath) => fs.mkdir(dirpath);
 
-export default (url, outputDir) => {
+export default (url, outputDir, renderer = 'silent') => {
   log('Inital data ', { url, outputDir });
 
   const pageUrl = new URL(url);
@@ -89,7 +89,7 @@ export default (url, outputDir) => {
           .then((content) => fs.writeFile(path.resolve(outputDir, filepath), content, { encoding: 'utf-8' })),
       }));
 
-      const listr = new Listr(tasks, { concurrent: true });
-      fs.writeFile(pageFilePath, updatedHtml).then(() => listr.run());
+      const listr = new Listr(tasks, { concurrent: true, renderer });
+      return fs.writeFile(pageFilePath, updatedHtml).then(() => listr.run());
     });
 };
