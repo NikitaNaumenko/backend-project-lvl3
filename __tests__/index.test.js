@@ -64,6 +64,43 @@ beforeAll(async () => {
   assets.forEach(({ url, data }) => scope.get(url).reply(200, data));
 });
 
+describe('negative cases', () => {
+  test('noaddr', async () => {
+    const fileAlreadyExist = await fileExists(path.join(dirPath, 'ru-hexlet-io-courses.html'));
+    expect(fileAlreadyExist).toBe(false);
+
+    const expectedError = `getaddrinfo ENOTFOUND ${baseUrl}`;
+    scope.get('/').replyWithError(expectedError);
+    await expect(pageLoader(baseUrl, dirPath)).rejects.toThrow(expectedError);
+
+    const fileCreated = await fileExists(path.join(dirPath, 'ru-hexlet-io-courses.html'));
+    expect(fileCreated).toBe(false);
+  });
+
+  test.each([404, 500])('with status %s', async (httpCode) => {
+    scope.get(`/${httpCode}`).reply(httpCode, '');
+    await expect(pageLoader(new URL(`/${httpCode}`, baseUrl).toString(), dirPath))
+      .rejects.toThrow(`Request failed with status code ${httpCode}`);
+  });
+
+  test('permission denied', async () => {
+    const rootDirectory = '/etc';
+    await expect(pageLoader(pageUrl.toString(), rootDirectory))
+      .rejects.toThrow(`EACCES: permission denied, mkdir '${rootDirectory}/${expectedDirPath}'`);
+  });
+  test('no directory', async () => {
+    const filepath = resolvePath('index.html');
+    await expect(pageLoader(pageUrl.toString(), filepath))
+      .rejects.toThrow(`ENOTDIR: not a directory, mkdir '${filepath}/${expectedDirPath}'`);
+  });
+
+  test('directory does not exist', async () => {
+    const notExistsPath = resolvePath('notExistsPath');
+    await expect(pageLoader(pageUrl.toString(), notExistsPath))
+      .rejects.toThrow(`ENOENT: no such file or directory, mkdir '${notExistsPath}/${expectedDirPath}'`);
+  });
+});
+
 describe('positive cases', () => {
   test('load page', async () => {
     const fileAlreadyExist = await fileExists(path.join(dirPath, 'ru-hexlet-io-courses.html'));

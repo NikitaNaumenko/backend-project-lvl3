@@ -3,6 +3,7 @@ import path from 'path';
 import _ from 'lodash';
 import $ from 'cheerio';
 import debug from 'debug';
+import 'axios-debug-log';
 import { promises as fs } from 'fs';
 
 const log = debug('page-loader');
@@ -84,9 +85,10 @@ export default (url, outputDir) => {
       assetsInfo.map(({ filepath, url: assetUrl }) => {
         log(`Download: ${assetUrl} into ${filepath}`);
 
-        return download(assetUrl.toString()).then((content) => fs.writeFile(path.resolve(outputDir, filepath), content, { encoding: 'utf-8' }));
+        return download(assetUrl.toString())
+          .then((content) => fs.writeFile(path.resolve(outputDir, filepath), content, { encoding: 'utf-8' }));
       });
 
       return fs.writeFile(pageFilePath, updatedHtml);
-    }).then(() => fs.readFile(pageFilePath, 'utf-8'));
+    });
 };
