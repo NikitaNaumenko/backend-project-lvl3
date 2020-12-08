@@ -10,7 +10,7 @@ program
     try {
       await pageLoader(url, cmdObj.output, 'default');
     } catch (e) {
-      console.log(e.toString());
+      console.error(e.toString());
       process.exitCode = 1;
     }
   })
