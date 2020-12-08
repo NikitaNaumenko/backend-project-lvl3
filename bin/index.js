@@ -11,7 +11,7 @@ program
       await pageLoader(url, cmdObj.output, 'default');
     } catch (e) {
       console.error(e.toString());
-      process.exitCode = 1;
+      process.exit(1);
     }
   })
   .parse(process.argv);
