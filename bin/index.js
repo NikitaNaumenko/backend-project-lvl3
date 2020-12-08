@@ -6,12 +6,10 @@ import pageLoader from '../index.js';
 program
   .option('-o, --output <dir>', 'path to uploaded path', process.cwd())
   .arguments('<url>')
-  .action(async (url, cmdObj) => {
-    try {
-      await pageLoader(url, cmdObj.output, 'default');
-    } catch (e) {
-      console.error(e.toString());
+  .action(async (url, cmdObj) => pageLoader(url, cmdObj.output, 'default')
+    .then(() => console.log('Page was loaded'))
+    .catch((err) => {
+      console.error(err.toString());
       process.exit(1);
-    }
-  })
+    }))
   .parse(process.argv);
