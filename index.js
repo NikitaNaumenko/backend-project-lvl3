@@ -12,10 +12,7 @@ const log = debug('page-loader');
 const generateSlug = ({ host, pathname }) => _.trim(`${host}${pathname}`, '/').replace(/[/.]/g, '-');
 
 const download = (urlString) => axios.get(urlString, { responseType: 'arraybuffer' })
-  .then(({ data }) => data.toString())
-  .catch(({ message }) => {
-    throw new Error(`Error while downloading page "${urlString}"\nReason - "${message}"`);
-  });
+  .then(({ data }) => data.toString());
 
 const assetLinkMap = {
   link: 'href',
