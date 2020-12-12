@@ -5,10 +5,8 @@ import { promises as fs, constants as fsConstants } from 'fs';
 import os from 'os';
 import pageLoader from '../index.js';
 
-/* eslint-disable no-underscore-dangle */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-/* eslint-enable no-underscore-dangle */
 
 const resolvePath = (...paths) => path.join(__dirname, '..', '__fixtures__', ...paths);
 const fileExists = async (file) => fs.access(file, fsConstants.F_OK)

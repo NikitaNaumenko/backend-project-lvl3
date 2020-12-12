@@ -45,6 +45,8 @@ const prepareAssetsInfo = (html, baseUrl, assetsPath) => $('link,img,script', ht
   .map((info) => ({ ...info, filepath: path.join(assetsPath, urlToFilename(info.url)) }));
 
 const prepareAssets = (initialHtml, assetsDirPath, origin) => {
+  log('Process assets...');
+
   const assetsInfo = prepareAssetsInfo(initialHtml, assetsDirPath, origin);
   const updatedHtml = assetsInfo.reduce((html, {
     tagName, attrName, attrValue, filepath,
@@ -53,10 +55,35 @@ const prepareAssets = (initialHtml, assetsDirPath, origin) => {
     $$(`${tagName}[${attrName}='${attrValue}']`).attr(attrName, filepath);
     return $$.html();
   }, initialHtml);
-  return { assetsInfo, updatedHtml };
+
+  return Promise.resolve({ assetsInfo, updatedHtml });
 };
 
 const createDir = (dirpath) => fs.mkdir(dirpath);
+const downloadAsset = (assetUrl, filepath, outputDir) => (
+  download(assetUrl.toString())
+    .then((content) => fs.writeFile(path.resolve(outputDir, filepath), content, { encoding: 'utf-8' }))
+);
+
+const prepareTasks = ({ assetsInfo, updatedHtml }, outputDir, pageFilePath) => {
+  const assetsTasks = assetsInfo.map(({ filepath, url: assetUrl }) => ({
+    title: `Download: ${assetUrl} into ${filepath}`,
+    task: () => downloadAsset(assetUrl, filepath, outputDir),
+  }));
+
+  const writeUpdatedHtmlTask = {
+    title: `Write update html into ${pageFilePath}`,
+    task: () => fs.writeFile(pageFilePath, updatedHtml),
+  };
+  const tasks = [...assetsTasks, writeUpdatedHtmlTask];
+
+  return Promise.resolve(tasks);
+};
+
+const runTasks = (tasks, renderer) => {
+  const listr = new Listr(tasks, { concurrent: true, renderer });
+  return listr.run();
+};
 
 export default (url, outputDir, renderer = 'silent') => {
   log('Inital data ', { url, outputDir });
@@ -71,21 +98,10 @@ export default (url, outputDir, renderer = 'silent') => {
   const assetsDir = `${slug}_files`;
   const assetsDirPath = path.resolve(outputDir, assetsDir);
 
-  return download(url)
-    .then((data) => {
-      log('Create assets directory: ', { assetsDirPath });
-      return createDir(assetsDirPath).then(() => data);
-    })
-    .then((data) => {
-      log('Process assets');
-      const { assetsInfo, updatedHtml } = prepareAssets(data, pageUrl, assetsDir);
-      const tasks = assetsInfo.map(({ filepath, url: assetUrl }) => ({
-        title: `Download: ${assetUrl} into ${filepath}`,
-        task: () => download(assetUrl.toString())
-          .then((content) => fs.writeFile(path.resolve(outputDir, filepath), content, { encoding: 'utf-8' })),
-      }));
-
-      const listr = new Listr(tasks, { concurrent: true, renderer });
-      return fs.writeFile(pageFilePath, updatedHtml).then(() => listr.run());
-    }).then((filepath) => pageFilePath);
+  return createDir(assetsDirPath)
+    .then(() => download(url))
+    .then((html) => prepareAssets(html, pageUrl, assetsDir))
+    .then((preparedInfo) => prepareTasks(preparedInfo, outputDir, pageFilePath))
+    .then((tasks) => runTasks(tasks, renderer))
+    .then(() => pageFilePath);
 };
