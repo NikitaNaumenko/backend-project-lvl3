@@ -11,8 +11,7 @@ const log = debug('page-loader');
 
 const generateSlug = ({ host, pathname }) => _.trim(`${host}${pathname}`, '/').replace(/[/.]/g, '-');
 
-const download = (urlString) => axios.get(urlString, { responseType: 'arraybuffer' })
-  .then(({ data }) => data.toString());
+const download = (urlString) => axios.get(urlString, { responseType: 'arraybuffer' }).then(({ data }) => data.toString());
 
 const assetLinkMap = {
   link: 'href',
@@ -88,5 +87,5 @@ export default (url, outputDir, renderer = 'silent') => {
 
       const listr = new Listr(tasks, { concurrent: true, renderer });
       return fs.writeFile(pageFilePath, updatedHtml).then(() => listr.run());
-    });
+    }).then((filepath) => pageFilePath);
 };
