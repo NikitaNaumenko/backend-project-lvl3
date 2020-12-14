@@ -25,7 +25,7 @@ const load = (urlString) => axios.get(urlString, { responseType: 'arraybuffer' }
 
 const downloadAsset = (assetUrl, filepath, outputDir) => (
   load(assetUrl.toString())
-    .then((content) => fs.writeFile(path.resolve(outputDir, filepath),content))
+    .then((content) => fs.writeFile(path.resolve(outputDir, filepath), content))
 );
 
 const assetLinkMap = {
