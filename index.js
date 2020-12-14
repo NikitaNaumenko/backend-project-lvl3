@@ -11,7 +11,22 @@ const log = debug('page-loader');
 
 const generateSlug = ({ host, pathname }) => _.trim(`${host}${pathname}`, '/').replace(/[/.]/g, '-');
 
-const download = (urlString) => axios.get(urlString, { responseType: 'arraybuffer' }).then(({ data }) => data.toString());
+export const urlToFilename = (url, defaultExt = '.html') => {
+  const { ext, dir, base } = path.parse(url.pathname);
+  const name = _.first(base.split('.'));
+  const urlWithoutFormat = new URL(path.join(dir, name), url.origin);
+  const slug = generateSlug(urlWithoutFormat);
+  const format = ext || defaultExt;
+
+  return `${slug}${format}`;
+};
+
+const load = (urlString) => axios.get(urlString, { responseType: 'arraybuffer' }).then(({ data }) => data);
+
+const downloadAsset = (assetUrl, filepath, outputDir) => (
+  load(assetUrl.toString())
+    .then((content) => fs.writeFile(path.resolve(outputDir, filepath),content))
+);
 
 const assetLinkMap = {
   link: 'href',
@@ -26,16 +41,6 @@ const getTagInfo = (tag) => {
   return { tagName, attrName, attrValue };
 };
 
-export const urlToFilename = (url, defaultExt = '.html') => {
-  const filename = _.trim(url.pathname, '/').replace(/\//g, '-');
-  const { ext } = path.parse(filename);
-  const name = _.first(filename.split('.'));
-  const base = generateSlug(new URL(url.origin));
-  const format = ext || defaultExt;
-
-  return `${base}-${name}${format}`;
-};
-
 const prepareAssetsInfo = (html, baseUrl, assetsPath) => $('link,img,script', html)
   .toArray()
   .map(getTagInfo)
@@ -45,9 +50,12 @@ const prepareAssetsInfo = (html, baseUrl, assetsPath) => $('link,img,script', ht
   .map((info) => ({ ...info, filepath: path.join(assetsPath, urlToFilename(info.url)) }));
 
 const prepareAssets = (initialHtml, assetsDirPath, origin) => {
-  log('Process assets...');
+  log('Preparing assets...');
 
   const assetsInfo = prepareAssetsInfo(initialHtml, assetsDirPath, origin);
+  log('Assets prepared.');
+
+  log('Preparing new HTML...');
   const updatedHtml = assetsInfo.reduce((html, {
     tagName, attrName, attrValue, filepath,
   }) => {
@@ -55,17 +63,15 @@ const prepareAssets = (initialHtml, assetsDirPath, origin) => {
     $$(`${tagName}[${attrName}='${attrValue}']`).attr(attrName, filepath);
     return $$.html();
   }, initialHtml);
+  log('new was HTML prepared');
 
   return Promise.resolve({ assetsInfo, updatedHtml });
 };
 
 const createDir = (dirpath) => fs.mkdir(dirpath);
-const downloadAsset = (assetUrl, filepath, outputDir) => (
-  download(assetUrl.toString())
-    .then((content) => fs.writeFile(path.resolve(outputDir, filepath), content, { encoding: 'utf-8' }))
-);
-
 const prepareTasks = ({ assetsInfo, updatedHtml }, outputDir, pageFilePath) => {
+  log('Preparing download assets tasks...');
+
   const assetsTasks = assetsInfo.map(({ filepath, url: assetUrl }) => ({
     title: `Download: ${assetUrl} into ${filepath}`,
     task: () => downloadAsset(assetUrl, filepath, outputDir),
@@ -77,10 +83,11 @@ const prepareTasks = ({ assetsInfo, updatedHtml }, outputDir, pageFilePath) => {
   };
   const tasks = [...assetsTasks, writeUpdatedHtmlTask];
 
-  return Promise.resolve(tasks);
+  return tasks;
 };
 
 const runTasks = (tasks, renderer) => {
+  log('Tasks are running...');
   const listr = new Listr(tasks, { concurrent: true, renderer });
   return listr.run();
 };
@@ -97,10 +104,11 @@ export default (url, outputDir, renderer = 'silent') => {
 
   const assetsDir = `${slug}_files`;
   const assetsDirPath = path.resolve(outputDir, assetsDir);
+  log('Output dir is', assetsDirPath);
 
   return createDir(assetsDirPath)
-    .then(() => download(url))
-    .then((html) => prepareAssets(html, pageUrl, assetsDir))
+    .then(() => load(url))
+    .then((data) => prepareAssets(data.toString(), pageUrl, assetsDir))
     .then((preparedInfo) => prepareTasks(preparedInfo, outputDir, pageFilePath))
     .then((tasks) => runTasks(tasks, renderer))
     .then(() => pageFilePath);
